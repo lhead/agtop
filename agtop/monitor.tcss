@@ -1,0 +1,68 @@
+Screen {
+    layout: vertical;
+}
+
+#main {
+    layout: horizontal;
+    height: 1fr;
+}
+
+#left {
+    width: 54;
+}
+
+#right {
+    width: 1fr;
+    border: round $accent;
+    padding: 0;
+}
+
+ListView {
+    height: 1fr;
+    padding: 0 1;
+}
+
+ListItem {
+    height: 5;
+    border: solid $panel-lighten-2;
+    padding: 0 1;
+}
+
+ListItem:hover {
+    border: solid $accent;
+}
+
+ListItem.--highlight {
+    border: double $success;
+    background: $success-darken-3;
+}
+
+ListItem.waiting {
+    background: $warning-darken-3;
+    border: solid $warning;
+}
+
+ListItem.waiting.--highlight {
+    background: $warning-darken-2;
+    border: double $warning;
+}
+
+ListItem.working {
+    border: solid $error-darken-1;
+}
+
+ListItem.working.--highlight {
+    border: double $error;
+    background: $error-darken-3;
+}
+
+RichLog {
+    height: 1fr;
+    background: $surface;
+    padding: 0 1;
+    scrollbar-size: 1 1;
+}
+
+Footer {
+    background: $panel;
+}

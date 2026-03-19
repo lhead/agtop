@@ -12,6 +12,9 @@ TUI monitor for AI coding agents — [Claude Code](https://docs.anthropic.com/en
 - Live status tracking: working, idle, waiting for input/permission, done
 - Conversation preview with tool call summaries
 - One-key jump to the terminal tab/pane running a session
+- Session history browser with project grouping and resume
+- Sub-agent visualization: waterfall diagram and Gantt timeline
+- Hook-based status sync for precise state detection
 - macOS notifications + bell when a session needs attention
 - Subscribe to sessions for task-completion alerts
 - Supports Claude Code and OpenAI Codex CLI
@@ -25,26 +28,39 @@ TUI monitor for AI coding agents — [Claude Code](https://docs.anthropic.com/en
 brew install lhead/tap/agtop
 ```
 
-### pip
-
-```bash
-pip install agtop
-```
-
 ## Usage
 
 ```bash
 agtop
 ```
 
+### Claude Hooks
+
+Install Claude Code hooks before using status sync and terminal jump:
+
+```bash
+agtop --install-hooks
+```
+
+For local development, install hooks with the same executable you use to run agtop:
+
+```bash
+.venv/bin/agtop --install-hooks
+.venv/bin/agtop
+```
+
+This avoids Claude calling a stale global `agtop` binary. After installing hooks, start a new Claude session so `~/.config/agtop/events/` begins receiving event files.
+
 ### Keybindings
 
 | Key | Action |
 |-----|--------|
 | `j` | Jump to session's terminal tab |
+| `h` | Toggle Live / History mode |
+| `v` | View sub-agent diagram |
 | `a` | Subscribe/unsubscribe to completion alerts |
-| `r` | Force refresh |
-| `c` | Copy session detail to clipboard |
+| `r` | Refresh (Live) / Resume session (History) |
+| `c` | Copy detail (Live) / Copy resume command (History) |
 | `q` | Quit |
 
 ## Configuration

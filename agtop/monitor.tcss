@@ -66,3 +66,32 @@ RichLog {
 Footer {
     background: $panel;
 }
+
+Tree {
+    height: 1fr;
+    padding: 0 1;
+}
+
+Tree > .tree--guides {
+    color: $panel-lighten-2;
+}
+
+Tree > .tree--guides-selected {
+    color: $accent;
+}
+
+#agent-viz {
+    height: 1fr;
+    padding: 1;
+    scrollbar-size: 1 1;
+}
+
+#agent-flow {
+    height: auto;
+    padding: 0 1;
+}
+
+#agent-timeline {
+    height: auto;
+    padding: 0 1;
+}

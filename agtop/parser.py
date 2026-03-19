@@ -2,9 +2,10 @@ import json
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from .config import load_config
+from .hooks import EVENTS_DIR
 
 _cfg = load_config()
 
@@ -20,6 +21,8 @@ TAIL_BYTES = 256 * 1024
 HEAD_LINES = 10
 REFRESH_FAST = _cfg["refresh_fast"]
 REFRESH_SLOW = _cfg["refresh_slow"]
+WAITING_STATUSES = {"waiting_question", "waiting_permission"}
+KNOWN_STATUSES = {"working", "active", "done", *WAITING_STATUSES}
 
 
 def _read_head_tail(
@@ -58,6 +61,81 @@ def _compute_status(age: float, pending_tool: bool, pending_tool_name: str) -> s
     if age <= ACTIVE_THRESHOLD:
         return "active"
     return "done"
+
+
+def _read_event_state(
+    session_id: str,
+) -> tuple[Optional[dict[str, Any]], float, int]:
+    path = EVENTS_DIR / f"{session_id}.json"
+    try:
+        stat_result = path.stat()
+    except OSError:
+        return None, 0, 0
+
+    try:
+        with open(path, "r", encoding="utf-8") as file_obj:
+            data = json.load(file_obj)
+    except (OSError, json.JSONDecodeError):
+        return None, 0, 0
+
+    if not isinstance(data, dict):
+        return None, 0, 0
+    return data, stat_result.st_mtime, stat_result.st_size
+
+
+def _event_epoch(value: Any) -> Optional[float]:
+    if value in (None, ""):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _waiting_status_from_event(event_state: dict[str, Any]) -> str:
+    status = str(event_state.get("status", "")).strip()
+    if status in WAITING_STATUSES:
+        return status
+
+    notification_type = str(event_state.get("notification_type", "")).strip()
+    message = str(event_state.get("message", "")).lower()
+    title = str(event_state.get("title", "")).lower()
+
+    if notification_type == "permission_prompt":
+        return "waiting_permission"
+    if notification_type in {"idle_prompt", "elicitation_dialog"}:
+        return "waiting_question"
+    if "permission" in title or "permission" in message:
+        return "waiting_permission"
+    return "waiting_question"
+
+
+def _compute_status_from_event(
+    event_state: dict[str, Any],
+    now: float,
+) -> Optional[str]:
+    if _event_epoch(event_state.get("stop_ts")) is not None:
+        return "done"
+
+    last_event = str(event_state.get("last_event", "")).strip()
+    last_event_ts = _event_epoch(event_state.get("last_event_ts"))
+
+    if last_event == "notification":
+        return _waiting_status_from_event(event_state)
+
+    if last_event == "prompt":
+        if last_event_ts is not None and now - last_event_ts <= WORKING_THRESHOLD:
+            return "working"
+        return "active"
+
+    status = str(event_state.get("status", "")).strip()
+    if status not in KNOWN_STATUSES:
+        return None
+    if status == "working":
+        if last_event_ts is not None and now - last_event_ts <= WORKING_THRESHOLD:
+            return "working"
+        return "active"
+    return status
 
 
 def _extract_user_text(msg: dict) -> str:
@@ -292,7 +370,7 @@ def _parse_codex_lines(all_lines: list[str]) -> dict:
 
 class SessionParser:
     def __init__(self) -> None:
-        self._cache: dict[str, tuple[float, int, dict]] = {}
+        self._cache: dict[str, tuple[float, int, float, int, dict]] = {}
 
     def parse(self, path: Path, source: str = "claude") -> Optional[dict]:
         try:
@@ -305,17 +383,40 @@ class SessionParser:
                 self._cache.pop(str(path), None)
                 return None
 
+            event_state, event_mtime, event_size = _read_event_state(path.stem)
+
             key = str(path)
             if key in self._cache:
-                cached_mtime, cached_size, cached_result = self._cache[key]
-                if cached_mtime == mtime and cached_size == size:
+                (
+                    cached_mtime,
+                    cached_size,
+                    cached_event_mtime,
+                    cached_event_size,
+                    cached_result,
+                ) = self._cache[key]
+                if (
+                    cached_mtime == mtime
+                    and cached_size == size
+                    and cached_event_mtime == event_mtime
+                    and cached_event_size == event_size
+                ):
                     result = cached_result.copy()
                     result["age"] = age
-                    result["status"] = _compute_status(
-                        age,
-                        result.get("_pending_tool"),
-                        result.get("_pending_tool_name"),
-                    )
+                    event_state = result.get("_event_state")
+                    event_status = None
+                    if isinstance(event_state, dict):
+                        event_status = _compute_status_from_event(
+                            event_state,
+                            now,
+                        )
+                    if event_status is not None:
+                        result["status"] = event_status
+                    else:
+                        result["status"] = _compute_status(
+                            age,
+                            result.get("_pending_tool"),
+                            result.get("_pending_tool_name"),
+                        )
                     if result["_task_ep"] and result["status"] == "working":
                         result["task_runtime"] = now - result["_task_ep"]
                     else:
@@ -348,6 +449,11 @@ class SessionParser:
             status = _compute_status(
                 age, parsed["pending_tool"], parsed["pending_tool_name"],
             )
+            event_status = None
+            if event_state is not None:
+                event_status = _compute_status_from_event(event_state, now)
+                if event_status is not None:
+                    status = event_status
 
             task_runtime = None
             if parsed["user_epoch"] and status == "working":
@@ -372,8 +478,15 @@ class SessionParser:
                 ),
                 "turns": parsed["turns"],
                 "source": parsed["source"],
+                "_event_state": event_state,
             }
-            self._cache[key] = (mtime, size, result.copy())
+            self._cache[key] = (
+                mtime,
+                size,
+                event_mtime,
+                event_size,
+                result.copy(),
+            )
             return result
         except Exception:
             return None

@@ -77,6 +77,8 @@ def render_card(session: dict) -> str:
     content_width = W - 5
     tag = _source_tag(session)
     sub = _sub_tag(session)
+    # Escape tool_summary once — it may contain brackets like [a-z]
+    raw_tool = rich_escape(session.get("tool_summary", "") or "")
 
     if status == "waiting_question":
         project = rich_escape(_truncate(session["project"], content_width))
@@ -87,7 +89,7 @@ def render_card(session: dict) -> str:
 
     if status == "waiting_permission":
         project = rich_escape(_truncate(session["project"], content_width))
-        tool = session["tool_summary"].split()[0] if session["tool_summary"] else ""
+        tool = raw_tool.split()[0] if raw_tool else ""
         line1 = f"🟠 [bold]{project}[/bold]{tag}{sub}"
         label = f"⏳ Needs Permission  {tool}" if tool else "⏳ Needs Permission"
         line2 = _center(label, content_width)
@@ -96,7 +98,7 @@ def render_card(session: dict) -> str:
 
     if status == "working":
         duration = _format_duration(session["task_runtime"])
-        tool = session["tool_summary"].split()[0] if session["tool_summary"] else ""
+        tool = raw_tool.split()[0] if raw_tool else ""
         suffix = f"[red]{duration}[/red]"
         if tool:
             suffix += f" [yellow]{tool}[/yellow]"

@@ -12,6 +12,7 @@ DEFAULTS = {
     "refresh_slow": 3,
     "notify": True,
     "notify_sound": True,
+    "history_days": 7,
 }
 
 

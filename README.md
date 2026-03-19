@@ -9,16 +9,13 @@ TUI monitor for AI coding agents — [Claude Code](https://docs.anthropic.com/en
 
 ## Features
 
-- Live status tracking: working, idle, waiting for input/permission, done
-- Conversation preview with tool call summaries
-- One-key jump to the terminal tab/pane running a session
-- Session history browser with project grouping and resume
-- Sub-agent visualization: waterfall diagram and Gantt timeline
-- Hook-based status sync for precise state detection
-- macOS notifications + bell when a session needs attention
-- Subscribe to sessions for task-completion alerts
-- Supports Claude Code and OpenAI Codex CLI
-- Terminal support: iTerm2, WezTerm, Terminal.app, Warp, Kaku, tmux
+- **Live monitoring** — real-time status tracking (working, idle, waiting for input/permission, done) with conversation preview and tool call summaries
+- **Terminal jump** — one-key jump to the terminal running a session. Supports iTerm2, WezTerm, Terminal.app, Warp, Kaku, and tmux
+- **History browser** — browse all past sessions grouped by project, preview full conversations, and resume with one key. Configurable time range (default 7 days)
+- **Sub-agent visualization** — waterfall diagram showing spawn batches and a Gantt timeline of agent lifetimes. Still being improved — more details and richer display coming soon
+- **Hook-based status sync** — optional Claude Code hooks for precise state detection (vs. mtime heuristics)
+- **Notifications** — macOS notifications + terminal bell when a session needs attention. Subscribe to specific sessions for completion alerts
+- Works with any terminal. Supports Claude Code and OpenAI Codex CLI
 
 ## Install
 

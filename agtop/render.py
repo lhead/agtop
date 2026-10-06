@@ -1,3 +1,4 @@
+import re
 import unicodedata
 from typing import Optional
 
@@ -72,23 +73,37 @@ def _source_tag(session: dict) -> str:
     return ""
 
 
+def _textual_escape(text: str) -> str:
+    """Escape text for Textual markup (used by Static widgets).
+
+    rich.markup.escape and textual.markup.escape only escape complete,
+    tag-like brackets, so an unclosed "[Image: ..." from a truncated prompt
+    swallowed the next tag and crashed the refresh. Escape every "[" instead.
+    Backslashes follow the same rules as textual.markup.escape.
+    """
+    text = re.sub(r"(\\*)\[", lambda match: match.group(1) * 2 + "\\[", text)
+    if text.endswith("\\") and not text.endswith("\\\\"):
+        text += "\\"
+    return text
+
+
 def render_card(session: dict) -> str:
     status = session["status"]
     content_width = W - 5
     tag = _source_tag(session)
     sub = _sub_tag(session)
     # Escape tool_summary once — it may contain brackets like [a-z]
-    raw_tool = rich_escape(session.get("tool_summary", "") or "")
+    raw_tool = _textual_escape(session.get("tool_summary", "") or "")
 
     if status == "waiting_question":
-        project = rich_escape(_truncate(session["project"], content_width))
+        project = _textual_escape(_truncate(session["project"], content_width))
         line1 = f"🟠 [bold]{project}[/bold]{tag}{sub}"
         line2 = _center("❓ Needs Input", content_width)
         line3 = ""
         return f"{line1}\n{line2}\n{line3}"
 
     if status == "waiting_permission":
-        project = rich_escape(_truncate(session["project"], content_width))
+        project = _textual_escape(_truncate(session["project"], content_width))
         tool = raw_tool.split()[0] if raw_tool else ""
         line1 = f"🟠 [bold]{project}[/bold]{tag}{sub}"
         label = f"⏳ Needs Permission  {tool}" if tool else "⏳ Needs Permission"
@@ -103,20 +118,20 @@ def render_card(session: dict) -> str:
         if tool:
             suffix += f" [yellow]{tool}[/yellow]"
         project_max = content_width - len(duration) - (len(tool) + 1 if tool else 0) - 2
-        project = rich_escape(_truncate(session["project"], project_max))
+        project = _textual_escape(_truncate(session["project"], project_max))
         line1 = f"🔴 [bold]{project}[/bold]{tag}{sub}  {suffix}"
     elif status == "active":
-        project = rich_escape(_truncate(session["project"], content_width))
+        project = _textual_escape(_truncate(session["project"], content_width))
         line1 = f"🟡 [bold]{project}[/bold]{tag}{sub}"
     else:
-        project = rich_escape(_truncate(session["project"], content_width))
+        project = _textual_escape(_truncate(session["project"], content_width))
         line1 = f"🟢 [bold]{project}[/bold]{tag}{sub}"
 
-    task = rich_escape(_truncate(session["task"], content_width)) if session["task"] else ""
+    task = _textual_escape(_truncate(session["task"], content_width)) if session["task"] else ""
     line2 = f"   [cyan]›[/cyan] {task}"
 
     output = (
-        rich_escape(_truncate(session["last_text"], content_width))
+        _textual_escape(_truncate(session["last_text"], content_width))
         if session["last_text"]
         else ""
     )
